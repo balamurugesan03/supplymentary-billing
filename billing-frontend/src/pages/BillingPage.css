@@ -1,0 +1,36 @@
+.billing-page {
+  padding: 20px;
+}
+
+.billing-page h2 {
+    color: #00a8ff;
+    text-shadow: 0 0 10px #00a8ff;
+}
+
+.customer-input {
+  margin-bottom: 10px;
+  width: 250px;
+}
+
+.product-select {
+  width: 250px;
+}
+
+.qty-input {
+  width: 100px;
+}
+
+.table {
+  margin-top: 20px;
+}
+
+.grand-total {
+  margin-top: 20px;
+  text-align: right;
+  color: #00ff00;
+  text-shadow: 0 0 10px #00ff00;
+}
+
+.save-button {
+  margin-top: 10px;
+}

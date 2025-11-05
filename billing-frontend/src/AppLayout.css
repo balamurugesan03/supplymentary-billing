@@ -1,0 +1,27 @@
+.logo {
+  height: 50px;
+  color: #00a8ff;
+  text-align: center;
+  line-height: 50px;
+  font-weight: bold;
+  font-size: 18px;
+  text-shadow: 0 0 10px #00a8ff;
+}
+
+.header {
+  background: #1f1f1f;
+  border-bottom: 1px solid #303030;
+}
+
+.content {
+  margin: 20px;
+}
+
+.ant-menu-dark {
+    background: #1f1f1f;
+}
+
+.ant-layout-sider {
+    background: #1f1f1f;
+    border-right: 1px solid #303030;
+}

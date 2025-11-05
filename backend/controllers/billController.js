@@ -1,0 +1,130 @@
+// backend/controllers/billController.js
+import Bill from "../models/Bill.js";
+import Product from "../models/productModel.js";
+import nodemailer from "nodemailer";
+
+export const addBill = async (req, res) => {
+  try {
+    const { billNo, customerName, items, grandTotal } = req.body;
+
+    // ↓ Reduce stock
+    for (const item of items) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stockQty: -item.qty },
+      });
+    }
+
+    const bill = await Bill.create({ billNo, customerName, items, grandTotal });
+
+    res.status(201).json(bill);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getBills = async (req, res) => {
+  try {
+    const bills = await Bill.find().populate("items.product");
+    res.json(bills);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const filterBills = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const filter = {};
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999); // include end of day
+
+      filter.date = { $gte: start, $lte: end };
+    }
+
+    const bills = await Bill.find(filter)
+      .populate("items.product")
+      .sort({ date: -1 });
+
+    res.json(bills);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const sendBillEmail = async (req, res) => {
+  const { billId, recipientEmail } = req.body;
+
+  try {
+    const bill = await Bill.findById(billId).populate("items.product");
+
+    if (!bill) {
+      return res.status(404).json({ message: "Bill not found" });
+    }
+
+    // ✅ Correct Gmail SMTP configuration
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true, // use SSL
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    // ✅ Build invoice email body
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: recipientEmail,
+      subject: `Invoice for Bill No: ${bill.billNo}`,
+      html: `
+        <h2 style="text-align:center;">🧾 Invoice</h2>
+        <p><b>Bill No:</b> ${bill.billNo}</p>
+        <p><b>Customer:</b> ${bill.customerName}</p>
+        <p><b>Date:</b> ${new Date(bill.date).toLocaleDateString()}</p>
+
+        <table border="1" cellpadding="6" cellspacing="0" width="100%" style="border-collapse: collapse; text-align:center;">
+          <thead style="background-color:#f2f2f2;">
+            <tr>
+              <th>Product</th>
+              <th>Quantity</th>
+              <th>Price</th>
+              <th>GST %</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bill.items
+              .map(
+                (item) => `
+              <tr>
+                <td>${item.product?.productName || "-"}</td>
+                <td>${item.qty || 0}</td>
+                <td>₹ ${(item.price || 0).toFixed(2)}</td>
+                <td>${item.gst || 0}%</td>
+                <td>₹ ${(item.total || 0).toFixed(2)}</td>
+              </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>
+
+        <h3 style="text-align:right; margin-top:10px;">Grand Total: ₹ ${(bill.grandTotal || 0).toFixed(2)}</h3>
+      `,
+    };
+
+    // ✅ Send email
+    await transporter.sendMail(mailOptions);
+
+    res.json({ message: "Invoice email sent successfully!" });
+  } catch (error) {
+    console.error("❌ Email send error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+

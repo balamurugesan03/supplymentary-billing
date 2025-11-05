@@ -1,0 +1,8 @@
+.product-page {
+  padding: 20px;
+}
+
+.product-page h2 {
+    color: #00a8ff;
+    text-shadow: 0 0 10px #00a8ff;
+}

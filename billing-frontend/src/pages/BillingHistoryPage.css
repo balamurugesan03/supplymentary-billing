@@ -1,0 +1,20 @@
+.billing-history-page {
+  padding: 20px;
+}
+
+.billing-history-page h2 {
+    color: #00a8ff;
+    text-shadow: 0 0 10px #00a8ff;
+}
+
+.filter-section {
+  margin-bottom: 16px;
+}
+
+.filter-button {
+  margin-left: 8px;
+}
+
+.export-button {
+  margin-left: 8px;
+}
