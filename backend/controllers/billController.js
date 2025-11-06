@@ -1,36 +1,60 @@
-// backend/controllers/billController.js
 import Bill from "../models/Bill.js";
 import Product from "../models/productModel.js";
 import nodemailer from "nodemailer";
 
+// ✅ Add new Bill and reduce stock
 export const addBill = async (req, res) => {
   try {
     const { billNo, customerName, items, grandTotal } = req.body;
 
-    // ↓ Reduce stock
+    // 🔍 Check stock availability before billing
+    for (const item of items) {
+      const product = await Product.findById(item.product);
+
+      if (!product) {
+        return res.status(404).json({ message: `Product not found` });
+      }
+
+      if (product.count < item.qty) {
+        return res.status(400).json({
+          message: `Not enough stock for ${product.productName}. Available: ${product.count}, Required: ${item.qty}`,
+        });
+      }
+    }
+
+    // 🧮 Deduct stock for each product
     for (const item of items) {
       await Product.findByIdAndUpdate(item.product, {
-        $inc: { stockQty: -item.qty },
+        $inc: { count: -item.qty },
       });
     }
 
-    const bill = await Bill.create({ billNo, customerName, items, grandTotal });
+    // 💾 Create the Bill
+    const bill = await Bill.create({
+      billNo,
+      customerName,
+      items,
+      grandTotal,
+    });
 
     res.status(201).json(bill);
   } catch (error) {
+    console.error("❌ Error saving bill:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
+// ✅ Get all bills
 export const getBills = async (req, res) => {
   try {
-    const bills = await Bill.find().populate("items.product");
+    const bills = await Bill.find().populate("items.product").sort({ date: -1 });
     res.json(bills);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
+// ✅ Filter bills by date range
 export const filterBills = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -39,7 +63,7 @@ export const filterBills = async (req, res) => {
     if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999); // include end of day
+      end.setHours(23, 59, 59, 999);
 
       filter.date = { $gte: start, $lte: end };
     }
@@ -54,6 +78,7 @@ export const filterBills = async (req, res) => {
   }
 };
 
+// ✅ Send bill via email
 export const sendBillEmail = async (req, res) => {
   const { billId, recipientEmail } = req.body;
 
@@ -64,18 +89,16 @@ export const sendBillEmail = async (req, res) => {
       return res.status(404).json({ message: "Bill not found" });
     }
 
-    // ✅ Correct Gmail SMTP configuration
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 465,
-      secure: true, // use SSL
+      secure: true,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
     });
 
-    // ✅ Build invoice email body
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: recipientEmail,
@@ -116,7 +139,6 @@ export const sendBillEmail = async (req, res) => {
       `,
     };
 
-    // ✅ Send email
     await transporter.sendMail(mailOptions);
 
     res.json({ message: "Invoice email sent successfully!" });
@@ -126,5 +148,25 @@ export const sendBillEmail = async (req, res) => {
   }
 };
 
+// ✅ (Optional) Restore stock if bill is deleted
+export const deleteBill = async (req, res) => {
+  try {
+    const bill = await Bill.findById(req.params.id);
 
+    if (!bill) {
+      return res.status(404).json({ message: "Bill not found" });
+    }
 
+    // 🔁 Restore stock for each product
+    for (const item of bill.items) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { count: item.qty },
+      });
+    }
+
+    await Bill.findByIdAndDelete(req.params.id);
+    res.json({ message: "Bill deleted and stock restored ✅" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

@@ -19,6 +19,8 @@ const ProductPage = () => {
 
   useEffect(() => {
     fetchProducts();
+    const interval = setInterval(fetchProducts, 5000); // Fetch products every 5 seconds
+    return () => clearInterval(interval); // Cleanup interval on component unmount
   }, []);
 
   const onFinish = async (values) => {
@@ -93,7 +95,7 @@ const ProductPage = () => {
   rowKey="_id"
   bordered
   style={{ marginTop: 20 }}
-  pagination={{ pageSize: 5 }} // <-- this sets 5 rows per page
+  pagination={{ pageSize: 5 }} 
 />
 
 
