@@ -1,41 +1,32 @@
 .purchase-page {
-  padding: 20px;
+  padding: 24px;
 }
 
 .add-purchase-button {
   margin-bottom: 16px;
 }
 
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
 .product-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr auto;
+  display: flex;
   gap: 10px;
-  align-items: center;
-  background: #fafafa;
-  border: 1px solid #e5e5e5;
-  border-radius: 10px;
-  padding: 12px;
   margin-bottom: 10px;
+  align-items: center;
 }
 
-.product-select,
-.qty-input,
-.price-input {
-  width: 100%;
-  border-radius: 6px;
+.product-item {
+  flex: 1;
 }
 
 .remove-btn {
-  color: #ff4d4f !important;
-  font-weight: 500;
+  color: red;
 }
 
-.remove-btn:hover {
-  color: #d9363e !important;
+.full-width {
+  width: 100%;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
 }

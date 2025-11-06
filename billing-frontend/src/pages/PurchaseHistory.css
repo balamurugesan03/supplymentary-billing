@@ -2,19 +2,13 @@
   padding: 20px;
 }
 
-.purchase-history-page h2 {
-    color: #00a8ff;
-    text-shadow: 0 0 10px #00a8ff;
-}
-
-.range-picker {
+.filter-bar {
+  display: flex;
+  gap: 10px;
   margin-bottom: 15px;
 }
 
 .export-button {
-  margin-left: 10px;
-}
-
-.table {
-  margin-top: 20px;
+  background-color: #1890ff;
+  border: none;
 }

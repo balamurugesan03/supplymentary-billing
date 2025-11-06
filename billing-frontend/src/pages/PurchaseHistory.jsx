@@ -15,6 +15,7 @@ const PurchaseHistory = () => {
     pageSize: 10,
   });
 
+  // ✅ Define table columns
   const columns = [
     {
       title: "Date",
@@ -22,26 +23,44 @@ const PurchaseHistory = () => {
       render: (date) => new Date(date).toLocaleDateString(),
     },
     { title: "Supplier", dataIndex: "supplierName" },
-    { title: "Product", render: (_, rec) => rec.productId?.productName || "-" },
+    { title: "Product", dataIndex: "productName" },
     { title: "Qty", dataIndex: "quantity" },
-    { title: "Total", dataIndex: "totalAmount" },
+    {
+      title: "Total",
+      dataIndex: "totalAmount",
+      render: (val) => val?.toFixed(2),
+    },
   ];
 
+  // ✅ Handle date range filter
   const handleFilter = async (dates) => {
     if (!dates || dates.length !== 2) return;
 
     setLoading(true);
     try {
-      const start = dates[0].startOf("day").format("YYYY-MM-DDTHH:mm:ss");
-      const end = dates[1].endOf("day").format("YYYY-MM-DDTHH:mm:ss");
+      const start = dates[0].startOf("day").toISOString();
+      const end = dates[1].endOf("day").toISOString();
 
       const response = await filterPurchasesByDate(start, end);
+
       if (response?.data && response.data.length > 0) {
-        setData(response.data);
+        // ✅ Flatten nested products array
+        const flatData = response.data.flatMap((purchase) =>
+          purchase.products.map((prod) => ({
+            _id: purchase._id + "-" + (prod.productId?._id || Math.random()),
+            purchaseDate: purchase.purchaseDate,
+            supplierName: purchase.supplierName,
+            productName: prod.productId?.productName || "-",
+            quantity: prod.quantity,
+            totalAmount: prod.totalAmount,
+          }))
+        );
+
+        setData(flatData);
         setPagination((prev) => ({
           ...prev,
           current: 1,
-          total: response.data.length,
+          total: flatData.length,
         }));
       } else {
         setData([]);
@@ -55,6 +74,7 @@ const PurchaseHistory = () => {
     }
   };
 
+  // ✅ Export to PDF
   const exportPDF = () => {
     if (!data.length) {
       message.warning("No data to export");
@@ -68,9 +88,9 @@ const PurchaseHistory = () => {
       body: data.map((i) => [
         new Date(i.purchaseDate).toLocaleDateString(),
         i.supplierName,
-        i.productId?.productName || "-",
+        i.productName,
         i.quantity,
-        i.totalAmount,
+        i.totalAmount?.toFixed(2),
       ]),
       startY: 20,
     });
@@ -78,6 +98,7 @@ const PurchaseHistory = () => {
     message.success("PDF exported successfully");
   };
 
+  // ✅ Handle table pagination change
   const handleTableChange = (newPagination) => {
     setPagination(newPagination);
   };
@@ -86,16 +107,21 @@ const PurchaseHistory = () => {
     <div className="purchase-history-page">
       <h2>Purchase History</h2>
 
-      <RangePicker onChange={handleFilter} className="range-picker" allowClear />
-
-      <Button
-        type="primary"
-        onClick={exportPDF}
-        disabled={data.length === 0}
-        className="export-button"
-      >
-        Export PDF
-      </Button>
+      <div className="filter-bar">
+        <RangePicker
+          onChange={handleFilter}
+          className="range-picker"
+          allowClear
+        />
+        <Button
+          type="primary"
+          onClick={exportPDF}
+          disabled={data.length === 0}
+          className="export-button"
+        >
+          Export PDF
+        </Button>
+      </div>
 
       <Table
         dataSource={data}

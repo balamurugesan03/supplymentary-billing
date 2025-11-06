@@ -1,21 +1,27 @@
 import mongoose from "mongoose";
-const purchaseSchema = new mongoose.Schema({
-  supplierName: String,
-  invoiceNumber: String,
-  purchaseDate: Date,
-  productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
-  brandName: String,
-  flavour: String,
-  quantity: Number,
-  unitPrice: Number,
-  gstPercent: Number,
-  batchNumber: String,
-  expiryDate: Date,
-  totalAmount: Number,
-},
+
+const purchaseSchema = new mongoose.Schema(
+  {
+    supplierName: { type: String, required: true },
+    invoiceNumber: { type: String, required: true },
+    purchaseDate: { type: Date, required: true },
+    gstPercent: { type: Number, default: 0 },
+    products: [
+      {
+        productId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+        },
+        quantity: { type: Number, required: true },
+        unitPrice: { type: Number, required: true },
+        gstPercent: { type: Number, default: 0 },
+        totalAmount: { type: Number, required: true },
+      },
+    ],
+    totalAmount: { type: Number, required: true },
+  },
   { timestamps: true }
 );
 
-
-const Purchase = mongoose.model("Purchase", purchaseSchema);
-export default Purchase;
+export default mongoose.model("Purchase", purchaseSchema);

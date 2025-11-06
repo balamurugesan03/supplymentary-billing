@@ -26,11 +26,8 @@ const PurchasePage = () => {
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
-  const [editForm] = Form.useForm();
 
   const [addModal, setAddModal] = useState(false);
-  const [editModal, setEditModal] = useState(false);
-  const [currentPurchase, setCurrentPurchase] = useState(null);
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -59,41 +56,20 @@ const PurchasePage = () => {
   const onFinish = async (values) => {
     try {
       setLoading(true);
-      values.purchaseDate = dayjs(values.purchaseDate).toDate();
-      values.expiryDate = values.expiryDate
-        ? dayjs(values.expiryDate).toDate()
-        : null;
-      await addPurchase(values);
-      message.success("Purchase Added & Stock Updated ✅");
+      const payload = {
+        ...values,
+        purchaseDate: dayjs(values.purchaseDate).toDate(),
+      };
+      await addPurchase(payload);
+      message.success("Purchase Added ✅");
       form.resetFields();
       setAddModal(false);
       loadPurchases();
-    } catch {
+    } catch (err) {
+      console.error(err);
       message.error("Error ❌");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleEdit = (record) => {
-    setCurrentPurchase(record);
-    editForm.setFieldsValue({
-      ...record,
-      purchaseDate: record.purchaseDate ? dayjs(record.purchaseDate) : null,
-      expiryDate: record.expiryDate ? dayjs(record.expiryDate) : null,
-      productId: record.productId?._id,
-    });
-    setEditModal(true);
-  };
-
-  const saveEdit = async (values) => {
-    try {
-      await updatePurchase(currentPurchase._id, values);
-      message.success("Updated ✅");
-      setEditModal(false);
-      loadPurchases();
-    } catch {
-      message.error("Failed ❌");
     }
   };
 
@@ -111,39 +87,52 @@ const PurchasePage = () => {
     { title: "Supplier", dataIndex: "supplierName" },
     { title: "Invoice No", dataIndex: "invoiceNumber" },
     {
-      title: "Product",
-      key: "product",
-      render: (_, record) => {
-        const name = record.productId?.productName || "-";
-        const flavour = record.productId?.flavour
-          ? ` - ${record.productId.flavour}`
-          : "";
-        return name + flavour;
-      },
+      title: "Purchase Date",
+      dataIndex: "purchaseDate",
+      render: (date) => dayjs(date).format("DD-MM-YYYY"),
     },
-    { title: "Qty", dataIndex: "quantity" },
-    { title: "Price", dataIndex: "unitPrice" },
-    { title: "Total", dataIndex: "totalAmount" },
+    { title: "Total Amount", dataIndex: "totalAmount" },
     {
       title: "Actions",
       render: (_, record) => (
-        <>
-          <Button type="link" onClick={() => handleEdit(record)}>
-            Edit
+        <Popconfirm title="Delete?" onConfirm={() => handleDelete(record._id)}>
+          <Button type="link" danger>
+            Delete
           </Button>
-          <Popconfirm title="Delete?" onConfirm={() => handleDelete(record._id)}>
-            <Button type="link" danger>
-              Delete
-            </Button>
-          </Popconfirm>
-        </>
+        </Popconfirm>
       ),
     },
   ];
 
+  const expandedRowRender = (record) => {
+    const innerColumns = [
+      {
+        title: "Product",
+        render: (_, item) =>
+          `${item.productId?.productName || "-"} ${
+            item.productId?.flavour ? `(${item.productId.flavour})` : ""
+          }`,
+      },
+      { title: "Qty", dataIndex: "quantity" },
+      { title: "Unit Price", dataIndex: "unitPrice" },
+      { title: "GST %", dataIndex: "gstPercent" },
+      { title: "Total", dataIndex: "totalAmount" },
+    ];
+
+    return (
+      <Table
+        columns={innerColumns}
+        dataSource={record.products}
+        pagination={false}
+        rowKey={(p) => p._id}
+        size="small"
+      />
+    );
+  };
+
   return (
     <div className="purchase-page">
-      <h2>Purchase Entry</h2>
+      <h2>📦 Purchase Entry</h2>
 
       <Button
         type="primary"
@@ -153,12 +142,12 @@ const PurchasePage = () => {
         + Add Purchase
       </Button>
 
-      {/* ✅ Table with pagination */}
       <Table
         columns={columns}
         dataSource={purchases}
         rowKey="_id"
         bordered
+        expandable={{ expandedRowRender }}
         pagination={pagination}
         onChange={handleTableChange}
       />
@@ -175,12 +164,13 @@ const PurchasePage = () => {
           layout="vertical"
           form={form}
           onFinish={onFinish}
-          onValuesChange={(changedValues, allValues) => {
-            if (changedValues.products) {
-              const total = allValues.products.reduce((acc, curr) => {
-                const quantity = curr?.quantity || 0;
-                const unitPrice = curr?.unitPrice || 0;
-                return acc + quantity * unitPrice;
+          onValuesChange={(changed, allValues) => {
+            if (changed.products) {
+              const total = (allValues.products || []).reduce((acc, curr) => {
+                const qty = curr?.quantity || 0;
+                const price = curr?.unitPrice || 0;
+                const gst = (price * qty * (curr?.gstPercent || 0)) / 100;
+                return acc + qty * price + gst;
               }, 0);
               form.setFieldsValue({ totalAmount: total });
             }
@@ -211,12 +201,11 @@ const PurchasePage = () => {
               <DatePicker className="full-width" />
             </Form.Item>
 
-            <Form.Item name="gstPercent" label="GST %">
+            <Form.Item name="gstPercent" label="Default GST %">
               <InputNumber min={0} max={28} className="full-width" />
             </Form.Item>
           </div>
 
-          {/* Product List */}
           <Form.List name="products">
             {(fields, { add, remove }) => (
               <>
@@ -228,7 +217,10 @@ const PurchasePage = () => {
                       rules={[{ required: true, message: "Select a product" }]}
                       className="product-item"
                     >
-                      <Select placeholder="Select Product" className="product-select">
+                      <Select
+                        placeholder="Select Product"
+                        className="product-select"
+                      >
                         {products.map((p) => (
                           <Select.Option value={p._id} key={p._id}>
                             {p.productName} {p.flavour && `- ${p.flavour}`}
@@ -243,7 +235,7 @@ const PurchasePage = () => {
                       rules={[{ required: true, message: "Enter Qty" }]}
                       className="product-item"
                     >
-                      <InputNumber placeholder="Qty" min={1} className="qty-input" />
+                      <InputNumber placeholder="Qty" min={1} />
                     </Form.Item>
 
                     <Form.Item
@@ -252,11 +244,15 @@ const PurchasePage = () => {
                       rules={[{ required: true, message: "Enter Price" }]}
                       className="product-item"
                     >
-                      <InputNumber
-                        placeholder="Price"
-                        min={0}
-                        className="price-input"
-                      />
+                      <InputNumber placeholder="Price" min={0} />
+                    </Form.Item>
+
+                    <Form.Item
+                      {...restField}
+                      name={[name, "gstPercent"]}
+                      className="product-item"
+                    >
+                      <InputNumber placeholder="GST %" min={0} max={28} />
                     </Form.Item>
 
                     <Button
@@ -290,26 +286,6 @@ const PurchasePage = () => {
           <Button type="primary" htmlType="submit" loading={loading} block>
             Save Purchase
           </Button>
-        </Form>
-      </Modal>
-
-      {/* EDIT PURCHASE MODAL */}
-      <Modal
-        title="Edit Purchase"
-        open={editModal}
-        onCancel={() => setEditModal(false)}
-        onOk={() => editForm.submit()}
-      >
-        <Form layout="vertical" form={editForm} onFinish={saveEdit}>
-          <Form.Item name="quantity" label="Quantity">
-            <InputNumber min={1} className="full-width" />
-          </Form.Item>
-          <Form.Item name="unitPrice" label="Unit Price">
-            <InputNumber min={0} className="full-width" />
-          </Form.Item>
-          <Form.Item name="totalAmount" label="Total Amount">
-            <InputNumber min={0} className="full-width" />
-          </Form.Item>
         </Form>
       </Modal>
     </div>
